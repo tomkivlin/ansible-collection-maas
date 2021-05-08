@@ -71,7 +71,6 @@ RETURN = r'''
 '''
 import os
 import traceback
-import warnings
 
 LIBMAAS_IMP_ERR = None
 try:
