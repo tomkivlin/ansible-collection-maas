@@ -136,7 +136,6 @@ def run_module():
                     msg='No machine matching hostname %s in MaaS or API key not authorised!' % hostname, **result)
         elif power_address:
             all_maas_machines = maas.machines.list()
-            output = print(all_maas_machines)
             for maas_machine in all_maas_machines:
                 maas_power = maas_machine.get_power_parameters()
                 for key, value in maas_power.items():

@@ -173,8 +173,6 @@ ok: [localhost] => {
 '''
 import os
 import traceback
-import warnings
-import json
 
 LIBMAAS_IMP_ERR = None
 try:
@@ -186,7 +184,6 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 from maas.client.bones import CallError
-from aiohttp.client_exceptions import ClientConnectorError
 
 
 def run_module():
