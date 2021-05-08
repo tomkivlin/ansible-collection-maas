@@ -1,7 +1,9 @@
 # ansible-collection-maas <!-- omit in toc -->
-Ansible collection of plugins to use in IaC management of MAAS-managed infrastructure.
+Ansible collection of modules to use in IaC management of MAAS-managed infrastructure.
 
-## Plugins <!-- omit in toc -->
+Requires the [python-libmaas](https://github.com/maas/python-libmaas) library to be installed on the Ansible control node.
+
+## Modules <!-- omit in toc -->
 - [set_hostname](#set_hostname)
 - [get_machine](#get_machine)
 - [get_system_id](#get_system_id)
