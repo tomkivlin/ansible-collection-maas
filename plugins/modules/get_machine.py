@@ -61,7 +61,7 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
-# Cut-down output 
+# Cut-down output
 ok: [localhost] => {
     "result": {
         "changed": false,
@@ -228,23 +228,23 @@ def run_module():
         try:
             maas = connect(maas_url, apikey=maas_apikey)
         except CallError:
-        module.fail_json(msg='Unable to connect - please check the URL!', **result)
+            module.fail_json(msg='Unable to connect - please check the URL!', **result)
 
         if system_id:
             try:
                 maas_machine = maas.machines.get(system_id=system_id)
-            maas_machine_power = maas.machines.get_power_parameters_for(system_ids=[system_id])
+                maas_machine_power = maas.machines.get_power_parameters_for(system_ids=[system_id])
             except CallError:
-            module.fail_json(msg='No machine matching system ID %s in MaaS or API key not authorised!' % system_id, **result)
+                module.fail_json(msg='No machine matching system ID %s in MaaS or API key not authorised!' % system_id, **result)
         elif hostname:
             try:
                 maas_machine = maas.machines.list(hostnames=hostname)
                 maas_system_id = maas_machine[0].system_id
                 maas_machine = maas.machines.get(system_id=maas_system_id)
             except (CallError, IndexError):
-            module.fail_json(msg='No machine matching hostname %s in MaaS or API key not authorised!' % hostname, **result)
+                module.fail_json(msg='No machine matching hostname %s in MaaS or API key not authorised!' % hostname, **result)
         else:
-        module.fail_json(msg='One of system_id or hostname is required.', **result)
+            module.fail_json(msg='One of system_id or hostname is required.', **result)
 
         if module.check_mode:
             module.exit_json(**result)
@@ -252,7 +252,7 @@ def run_module():
         result = {"changed": False, "data": maas_machine._data, "power_data": maas_machine_power}
 
         module.exit_json(**result)
-    
+
     else:
         module.fail_json(msg='One of system_id or hostname is required.', **result)
 
