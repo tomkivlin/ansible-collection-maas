@@ -100,8 +100,10 @@ def run_module():
     # for consumption, for example, in a subsequent task
     result = dict(
         changed=False,
-        original_message='',
-        message=''
+        original_hostname='',
+        original_domain='',
+        hostname='',
+        domain=''
     )
 
     # the AnsibleModule object will be our abstraction working with Ansible
@@ -127,32 +129,44 @@ def run_module():
         module.params['maas_apikey']
         or os.getenv("MAAS_APIKEY")
     )
+    changed = False
 
     maas = connect(maas_url, apikey=maas_apikey)
 
     try:
         maas_machine = maas.machines.get(system_id=system_id)
-        maas_machine_name = maas_machine.hostname
-        maas_machine_domain = maas_machine.domain.name
     except IndexError:
         module.fail_json(msg='No machine matching system ID %s in MaaS!' % system_id, **result)
+
+    maas_machine_name = maas_machine.hostname
+    maas_machine_domain = maas_machine.domain.name
+
+    if domain == maas_machine_domain and hostname == maas_machine_name:
+        changed = False
+    else:
+        if domain != maas_machine_domain:
+            maas_domains = maas.domains.list()
+            domain_found = 0
+            for maas_domain in maas_domains:
+                if maas_domain.name == domain:
+                    # the provided domain is configured within MAAS
+                    domain_found = 1
+                    domain_obj = maas_domain
+            if domain_found == 0:
+                module.fail_json(msg='No domain matching name %s in MaaS!' % domain, **result)
+            else:
+                maas_machine.domain = domain_obj
+                maas_machine.save()
+                changed = True
+        if hostname != maas_machine_name:
+            maas_machine.hostname = hostname
+            maas_machine.save()
+            changed = True
 
     if module.check_mode:
         module.exit_json(**result)
 
-    if hostname == maas_machine_name:
-        result['changed'] = False
-    else:
-        maas_machine.hostname = hostname
-        maas_machine.save()
-        result['changed'] = True
-
-    if domain == maas_machine_domain:
-        result['changed'] = False
-    else:
-        maas_machine.domain.name = domain
-        maas_machine.save()
-        result['changed'] = True
+    result = {"changed": changed, "original_hostname": maas_machine_name, "original_domain": maas_machine_domain, "hostname": hostname, "domain": domain}
 
     module.exit_json(**result)
 
