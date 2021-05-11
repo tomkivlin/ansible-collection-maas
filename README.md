@@ -1,4 +1,7 @@
 # ansible-collection-maas <!-- omit in toc -->
+
+[![CI](https://github.com/tomkivlin/ansible-collection-maas/workflows/CI/badge.svg)](https://github.com/tomkivlin/ansible-collection-maas/actions?query=workflow%3ACI)
+
 Ansible collection of modules to use in IaC management of MAAS-managed infrastructure.
 
 Requires the [python-libmaas](https://github.com/maas/python-libmaas) library to be installed on the Ansible control node.  This has been tested using `python-libmaas==0.6.6`.
