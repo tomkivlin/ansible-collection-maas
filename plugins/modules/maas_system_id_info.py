@@ -3,16 +3,12 @@
 # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import (absolute_import, division, print_function)
-from maas.client.bones import CallError
-from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-import traceback
-import os
 
 __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: get_system_id
+module: maas_system_id_info
 
 short_description: Get system_id of MaaS machine
 
@@ -42,41 +38,46 @@ options:
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
-#     - gtlabs.maas.my_doc_fragment_name
+#     - gtlabs.maas.maas_system_id_info
 
 author:
-    - Tom Kivlin (@tom-kivlin)
+    - Tom Kivlin (@tomkivlin)
 '''
 
 EXAMPLES = r'''
 # Get information based on the hostname
-- name: Get information about machine based on hostname
-  gtlabs.maas.get_system_id:
+- name: Get system_id of machine based on hostname
+  tomkivlin.maas.maas_system_id_info:
     hostname: server1
     maas_url: http://maas_server:5240/MAAS/
     maas_apikey: fsdfsdfsdf:sdfsdfsdf:sdfsdfsdf
 
 # Get information based on the system_id
-- name: Get information based on the system_id
-  gtlabs.maas.get_system_id:
+- name: Get system_id of machine based on power address
+  tomkivlin.maas.maas_system_id_info:
     power_address: 10.1.1.100
     maas_url: http://maas_server:5240/MAAS/
     maas_apikey: fsdfsdfsdf:sdfsdfsdf:sdfsdfsdf
 '''
 
 RETURN = r'''
-ok: [localhost] => {
-    "result": {
-        "changed": false,
-        "failed": false,
-        "system_id": "7pxm3s"
-    }
-}
+system_id:
+    description: The system_id of the machine
+    returned: success
+    type: str
+    sample:
+        - r7y6t5
+        - retyet
 '''
+
+from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+import traceback
+import os
 
 LIBMAAS_IMP_ERR = None
 try:
     from maas.client import connect
+    from maas.client.bones import CallError
     HAS_LIBMAAS = True
 except ImportError:
     LIBMAAS_IMP_ERR = traceback.format_exc()
