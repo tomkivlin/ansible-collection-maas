@@ -130,7 +130,7 @@ def run_module():
 
         if hostname:
             try:
-                maas_machine = maas.machines.list(hostnames=hostname)
+                maas_machine = maas.machines.list(hostnames=[hostname])
                 maas_system_id = maas_machine[0].system_id
             except (CallError, IndexError):
                 module.fail_json(
