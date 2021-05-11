@@ -137,10 +137,10 @@ def run_module():
                 module.fail_json(msg='No machine matching system ID %s in MaaS or API key not authorised!' % system_id, **result)
         elif hostname:
             try:
-                maas_machine = maas.machines.list(hostnames=hostname)
+                maas_machine = maas.machines.list(hostnames=[hostname])
                 maas_system_id = maas_machine[0].system_id
                 maas_machine = maas.machines.get(system_id=maas_system_id)
-                maas_machine_power = maas.machines.get_power_parameters_for(system_ids=[system_id])
+                maas_machine_power = maas.machines.get_power_parameters_for(system_ids=[maas_system_id])
             except (CallError, IndexError):
                 module.fail_json(msg='No machine matching hostname %s in MaaS or API key not authorised!' % hostname, **result)
         else:
