@@ -189,7 +189,7 @@ def run_module():
                 module.fail_json(msg='No machine matching system ID %s in MaaS or API key not authorised!' % system_id, **result)
         elif hostname:
             try:
-                maas_machine = maas.machines.list(hostnames=hostname)
+                maas_machine = maas.machines.list(hostnames=[hostname])
                 maas_system_id = maas_machine[0].system_id
                 maas_machine = maas.machines.get(system_id=maas_system_id)
                 maas_status_id = maas_machine.status
@@ -202,7 +202,7 @@ def run_module():
         if module.check_mode:
             module.exit_json(**result)
 
-        result = {"changed": False, "status": maas_status}
+        result = {"changed": False, "status": maas_status, "status_id": maas_status_id}
 
         module.exit_json(**result)
 
