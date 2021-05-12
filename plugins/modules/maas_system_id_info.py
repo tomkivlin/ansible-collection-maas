@@ -38,7 +38,7 @@ options:
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
-#     - gtlabs.maas.maas_system_id_info
+#     - tomkivlin.maas.maas_system_id_info
 
 author:
     - Tom Kivlin (@tomkivlin)
@@ -52,7 +52,7 @@ EXAMPLES = r'''
     maas_url: http://maas_server:5240/MAAS/
     maas_apikey: fsdfsdfsdf:sdfsdfsdf:sdfsdfsdf
 
-# Get information based on the system_id
+# Get information based on the power address
 - name: Get system_id of machine based on power address
   tomkivlin.maas.maas_system_id_info:
     power_address: 10.1.1.100
@@ -67,7 +67,6 @@ system_id:
     type: str
     sample:
         - r7y6t5
-        - retyet
 '''
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
