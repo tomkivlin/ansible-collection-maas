@@ -89,7 +89,7 @@ def run_module():
         hostname=dict(type='str', required=False),
         power_address=dict(type='str', required=False),
         maas_url=dict(type='str', required=False),
-        maas_apikey=dict(type='str', required=False)
+        maas_apikey=dict(type='str', required=False, no_log=True)
     )
 
     result = {"changed": False}

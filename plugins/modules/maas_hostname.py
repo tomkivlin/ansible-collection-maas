@@ -90,7 +90,7 @@ def run_module():
         domain=dict(type='str', required=True),
         system_id=dict(type='str', required=True),
         maas_url=dict(type='str', required=False),
-        maas_apikey=dict(type='str', required=False)
+        maas_apikey=dict(type='str', required=False, no_log=True)
     )
 
     # seed the result dict in the object
