@@ -367,10 +367,11 @@ def run_module():
     boot_disk = module.params['boot_disk']
     storage_layout = module.params['storage_layout']
     vlans = module.params['vlans']
-    for vlan in vlans:      # Validation that ip_address is provided if link_mode=static.
-        if 'static' in vlan['link_mode']:
-            if vlan['ip_address'] is None:
-                module.fail_json(msg='vlans.ip_address must be provided if vlans.link_mode: static', **result)
+    if vlans:
+        for vlan in vlans:      # Validation that ip_address is provided if link_mode=static.
+            if 'static' in vlan['link_mode']:
+                if vlan['ip_address'] is None:
+                    module.fail_json(msg='vlans.ip_address must be provided if vlans.link_mode: static', **result)
     changed = False
 
     try:
