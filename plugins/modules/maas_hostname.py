@@ -8,7 +8,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: set_hostname
+module: maas_hostname
 
 short_description: Set MaaS machine name
 
@@ -42,16 +42,16 @@ options:
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
-#     - gtlabs.maas.my_doc_fragment_name
+#     - gtlabs.maas.maas_hostname
 
 author:
-    - Tom Kivlin (@tom-kivlin)
+    - Tom Kivlin (@tomkivlin)
 '''
 
 EXAMPLES = r'''
 # Set the hostname
 - name: Set the hostname
-  gtlabs.maas.set_hostname:
+  tomkivlin.maas.maas_hostname:
     hostname: server1
     domain: foo.bar
     system_id: y3b3x3
@@ -60,7 +60,7 @@ EXAMPLES = r'''
 
 # Set the hostname, using environment variables for the URL and API key
 - name: Test with a message and changed output
-  gtlabs.maas.set_hostname:
+  tomkivlin.maas.maas_hostname:
     hostname: server1
     domain: foo.bar
     system_id: y3b3x3
@@ -89,8 +89,8 @@ def run_module():
         hostname=dict(type='str', required=True),
         domain=dict(type='str', required=True),
         system_id=dict(type='str', required=True),
-        maas_url=dict(type='str', required=True),
-        maas_apikey=dict(type='str', required=True)
+        maas_url=dict(type='str', required=False),
+        maas_apikey=dict(type='str', required=False, no_log=True)
     )
 
     # seed the result dict in the object
@@ -100,8 +100,10 @@ def run_module():
     # for consumption, for example, in a subsequent task
     result = dict(
         changed=False,
-        original_message='',
-        message=''
+        original_hostname='',
+        original_domain='',
+        hostname='',
+        domain=''
     )
 
     # the AnsibleModule object will be our abstraction working with Ansible
@@ -127,51 +129,45 @@ def run_module():
         module.params['maas_apikey']
         or os.getenv("MAAS_APIKEY")
     )
+    changed = False
 
     maas = connect(maas_url, apikey=maas_apikey)
 
     try:
         maas_machine = maas.machines.get(system_id=system_id)
-        maas_machine_name = maas_machine.hostname
-        maas_machine_domain = maas_machine.domain.name
     except IndexError:
         module.fail_json(msg='No machine matching system ID %s in MaaS!' % system_id, **result)
+
+    maas_machine_name = maas_machine.hostname
+    maas_machine_domain = maas_machine.domain.name
+
+    if domain == maas_machine_domain and hostname == maas_machine_name:
+        changed = False
+    else:
+        if domain != maas_machine_domain:
+            maas_domains = maas.domains.list()
+            domain_found = 0
+            for maas_domain in maas_domains:
+                if maas_domain.name == domain:
+                    # the provided domain is configured within MAAS
+                    domain_found = 1
+                    domain_obj = maas_domain
+            if domain_found == 0:
+                module.fail_json(msg='No domain matching name %s in MaaS!' % domain, **result)
+            else:
+                maas_machine.domain = domain_obj
+                maas_machine.save()
+                changed = True
+        if hostname != maas_machine_name:
+            maas_machine.hostname = hostname
+            maas_machine.save()
+            changed = True
 
     if module.check_mode:
         module.exit_json(**result)
 
-    if hostname == maas_machine_name:
-        result['changed'] = False
-    else:
-        maas_machine.hostname = hostname
-        maas_machine.save()
-        result['changed'] = True
+    result = {"changed": changed, "original_hostname": maas_machine_name, "original_domain": maas_machine_domain, "hostname": hostname, "domain": domain}
 
-    if domain == maas_machine_domain:
-        result['changed'] = False
-    else:
-        maas_machine.domain.name = domain
-        maas_machine.save()
-        result['changed'] = True
-
-    # # manipulate or modify the state as needed (this is going to be the
-    # # part where your module will do what it needs to do)
-    # result['original_message'] = module.params['name']
-    # result['message'] = 'goodbye'
-    #
-    # # use whatever logic you need to determine whether or not this module
-    # # made any modifications to your target
-    # if module.params['new']:
-    #     result['changed'] = True
-    #
-    # # during the execution of the module, if there is an exception or a
-    # # conditional state that effectively causes a failure, run
-    # # AnsibleModule.fail_json() to pass in the message and the result
-    # if module.params['name'] == 'fail me':
-    #     module.fail_json(msg='You requested this to fail', **result)
-
-    # in the event of a successful module execution, you will want to
-    # simple AnsibleModule.exit_json(), passing the key/value results
     module.exit_json(**result)
 
 

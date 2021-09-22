@@ -8,7 +8,7 @@ namespace: tomkivlin
 name: maas
 
 # The version of the collection. Must be compatible with semantic versioning
-version: 0.2.7
+version: 1.0.0
 
 # The path to the Markdown (.md) readme file. This path is relative to the root of the collection
 readme: README.md
@@ -21,7 +21,7 @@ authors:
 
 ### OPTIONAL but strongly recommended
 # A short summary description of the collection
-description: Modules for the management of MaaS
+description: Modules for the management of machines in MAAS
 
 # Either a single license or a list of licenses for content inside of a collection. Ansible Galaxy currently only
 # accepts L(SPDX,https://spdx.org/licenses/) licenses. This key is mutually exclusive with 'license_file'

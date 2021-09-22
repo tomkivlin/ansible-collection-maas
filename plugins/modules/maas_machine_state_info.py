@@ -8,15 +8,15 @@ __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: get_machine
+module: maas_machine_state_info
 
-short_description: Get info about a MaaS machine
+short_description: Get MaaS machine state
 
 # If this is part of a collection, you need to use semantic versioning,
 # i.e. the version is of the form "2.5.0" and not "2.4".
-version_added: "0.2.0"
+version_added: "1.0.0"
 
-description: Gets all info about a machine in MaaS from the system_id or hostname
+description: Gets the state of a machine in MaaS from the system_id or hostname
 
 options:
     hostname:
@@ -38,138 +38,38 @@ options:
 # Specify this value according to your collection
 # in format of namespace.collection.doc_fragment_name
 # extends_documentation_fragment:
-#     - gtlabs.maas.my_doc_fragment_name
+#     - gtlabs.maas.maas_machine_state_info
 
 author:
-    - Tom Kivlin (@tom-kivlin)
+    - Tom Kivlin (@tomkivlin)
 '''
 
 EXAMPLES = r'''
 # Get information based on the hostname
 - name: Get information based on the hostname
-  gtlabs.maas.get_machine:
+  tomkivlin.maas.maas_machine_state_info:
     hostname: server1
     maas_url: http://maas_server:5240/MAAS/
     maas_apikey: fsdfsdfsdf:sdfsdfsdf:sdfsdfsdf
 
 # Get information based on the system_id
 - name: Get information based on the system_id
-  gtlabs.maas.get_machine:
+  tomkivlin.maas.maas_machine_state_info:
     system_id: y3b3x3
     maas_url: http://maas_server:5240/MAAS/
     maas_apikey: fsdfsdfsdf:sdfsdfsdf:sdfsdfsdf
 '''
 
 RETURN = r'''
-# Cut-down output
-ok: [localhost] => {
-    "result": {
-        "changed": false,
-        "data": {
-            "address_ttl": null,
-            "architecture": "amd64/generic",
-            "bcaches": [],
-            "bios_boot_method": "uefi",
-            "blockdevice_set": [
-                {
-                    ...
-                }
-            ],
-            "boot_disk": {
-                ...
-            },
-            "boot_interface": {
-                ...
-            },
-            "cache_sets": [],
-            "commissioning_status": 2,
-            "commissioning_status_name": "Passed",
-            "cpu_count": 48,
-            "cpu_speed": 2300,
-            "cpu_test_status": -1,
-            "cpu_test_status_name": "Unknown",
-            "current_commissioning_result_id": 684,
-            "current_installation_result_id": null,
-            "current_testing_result_id": 687,
-            "default_gateways": {
-                ...
-            },
-            "description": "",
-            "disable_ipv4": false,
-            "distro_series": "",
-            "domain": {
-                ...
-            },
-            "fqdn": "server1.maas",
-            "hardware_info": {
-                ...
-            },
-            "hardware_uuid": "37383638-3530-5A43-3238-323130354A47",
-            "hostname": "server1",
-            "hwe_kernel": null,
-            "interface_set": [
-                {
-                    ...
-                }
-            ],
-            "interface_test_status": -1,
-            "interface_test_status_name": "Unknown",
-            "ip_addresses": [],
-            "iscsiblockdevice_set": [],
-            "locked": false,
-            "memory": 67584,
-            "memory_test_status": -1,
-            "memory_test_status_name": "Unknown",
-            "min_hwe_kernel": "",
-            "netboot": true,
-            "network_test_status": -1,
-            "network_test_status_name": "Unknown",
-            "node_type": 0,
-            "node_type_name": "Machine",
-            "numanode_set": [
-                {
-                    ...
-                }
-            ],
-            "osystem": "",
-            "other_test_status": -1,
-            "other_test_status_name": "Unknown",
-            "owner": null,
-            "owner_data": {},
-            "physicalblockdevice_set": [
-                {
-                    ...
-                }
-            ],
-            "pod": null,
-            "pool": {
-                ...
-            },
-            "power_state": "off",
-            "power_type": "ipmi",
-            "raids": [],
-            "resource_uri": "/MAAS/api/2.0/machines/y3b3x3/",
-            "special_filesystems": [],
-            "status": 4,
-            "status_action": "",
-            "status_message": "Loading ephemeral",
-            "status_name": "Ready",
-            "storage": 17843526.844416,
-            "storage_test_status": 2,
-            "storage_test_status_name": "Passed",
-            "swap_size": null,
-            "system_id": "y3b3x3",
-            "tag_names": [],
-            "testing_status": 2,
-            "testing_status_name": "Passed",
-            "virtualblockdevice_set": [],
-            "virtualmachine_id": null,
-            "volume_groups": [],
-            "zone": {
-                ...
-            }
-        },
-        "failed": false
+status:
+    description: The status of the machine
+    returned: success
+    type: str
+    sample:
+        - COMMISSIONING
+        - NEW
+        - READY
+        - DEPLOYED
 '''
 import os
 import traceback
@@ -177,13 +77,66 @@ import traceback
 LIBMAAS_IMP_ERR = None
 try:
     from maas.client import connect
+    from maas.client.bones import CallError
     HAS_LIBMAAS = True
 except ImportError:
     LIBMAAS_IMP_ERR = traceback.format_exc()
     HAS_LIBMAAS = False
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from maas.client.bones import CallError
+
+
+def status_map(maas_status_id):
+    if maas_status_id == 0:
+        maas_status = 'NEW'
+    elif maas_status_id == 1:
+        maas_status = 'COMMISSIONING'
+    elif maas_status_id == 2:
+        maas_status = 'FAILED_COMMISSIONING'
+    elif maas_status_id == 3:
+        maas_status = 'MISSING'
+    elif maas_status_id == 4:
+        maas_status = 'READY'
+    elif maas_status_id == 5:
+        maas_status = 'RESERVED'
+    elif maas_status_id == 6:
+        maas_status = 'DEPLOYED'
+    elif maas_status_id == 7:
+        maas_status = 'RETIRED'
+    elif maas_status_id == 8:
+        maas_status = 'BROKEN'
+    elif maas_status_id == 9:
+        maas_status = 'DEPLOYING'
+    elif maas_status_id == 10:
+        maas_status = 'ALLOCATED'
+    elif maas_status_id == 11:
+        maas_status = 'FAILED_DEPLOYMENT'
+    elif maas_status_id == 12:
+        maas_status = 'RELEASING'
+    elif maas_status_id == 13:
+        maas_status = 'FAILED_RELEASING'
+    elif maas_status_id == 14:
+        maas_status = 'DISK_ERASING'
+    elif maas_status_id == 15:
+        maas_status = 'FAILED_DISK_ERASING'
+    elif maas_status_id == 16:
+        maas_status = 'RESCUE_MODE'
+    elif maas_status_id == 17:
+        maas_status = 'ENTERING_RESCUE_MODE'
+    elif maas_status_id == 18:
+        maas_status = 'FAILED_ENTERING_RESCUE_MODE'
+    elif maas_status_id == 19:
+        maas_status = 'EXITING_RESCUE_MODE'
+    elif maas_status_id == 20:
+        maas_status = 'FAILED_EXITING_RESCUE_MODE'
+    elif maas_status_id == 21:
+        maas_status = 'TESTING'
+    elif maas_status_id == 22:
+        maas_status = 'FAILED_TESTING'
+    else:
+        maas_status = 'UNKNOWN'
+
+    return maas_status
 
 
 def run_module():
@@ -192,7 +145,7 @@ def run_module():
         hostname=dict(type='str', required=False),
         system_id=dict(type='str', required=False),
         maas_url=dict(type='str', required=False),
-        maas_apikey=dict(type='str', required=False)
+        maas_apikey=dict(type='str', required=False, no_log=True)
     )
 
     result = {"changed": False}
@@ -230,14 +183,17 @@ def run_module():
         if system_id:
             try:
                 maas_machine = maas.machines.get(system_id=system_id)
-                maas_machine_power = maas.machines.get_power_parameters_for(system_ids=[system_id])
+                maas_status_id = maas_machine.status
+                maas_status = status_map(maas_status_id)
             except CallError:
                 module.fail_json(msg='No machine matching system ID %s in MaaS or API key not authorised!' % system_id, **result)
         elif hostname:
             try:
-                maas_machine = maas.machines.list(hostnames=hostname)
+                maas_machine = maas.machines.list(hostnames=[hostname])
                 maas_system_id = maas_machine[0].system_id
                 maas_machine = maas.machines.get(system_id=maas_system_id)
+                maas_status_id = maas_machine.status
+                maas_status = status_map(maas_status_id)
             except (CallError, IndexError):
                 module.fail_json(msg='No machine matching hostname %s in MaaS or API key not authorised!' % hostname, **result)
         else:
@@ -246,7 +202,7 @@ def run_module():
         if module.check_mode:
             module.exit_json(**result)
 
-        result = {"changed": False, "data": maas_machine._data, "power_data": maas_machine_power}
+        result = {"changed": False, "status": maas_status, "status_id": maas_status_id}
 
         module.exit_json(**result)
 
