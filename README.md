@@ -6,6 +6,8 @@ Ansible collection of modules to use in IaC management of MAAS-managed infrastru
 
 Requires the [python-libmaas](https://github.com/maas/python-libmaas) library to be installed on the Ansible control node.  This has been tested using `python-libmaas==0.6.6`.
 
+Requires the [requests-oauthlib](https://github.com/requests/requests-oauthlib) library to be installed on the Ansible control node. This has been tested using `requests-oauthlib==1.1.0`.
+
 ## Modules <!-- omit in toc -->
 - "info" modules:
   - `maas_machine_info`
