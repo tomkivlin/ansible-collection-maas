@@ -3,6 +3,12 @@
 # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import (absolute_import, division, print_function)
+from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+from requests_oauthlib import OAuth1
+from requests import Request, Session
+import time
+import traceback
+import os
 
 __metaclass__ = type
 
@@ -67,7 +73,7 @@ options:
     storage_layout:
         description: The storage layout to apply; select from 'flat', 'lvm' or 'blank'
         type: str
-        choices: ['blank', 'lvm', 'flat']
+        choices: ['blank', 'lvm', 'flat', 'vmfs6']
     vlans:
         description: The vlans that need to be applied to the machine configuration.
         type: list
@@ -156,9 +162,6 @@ EXAMPLES = r'''
 RETURN = r'''
 # Default return values
 '''
-import os
-import traceback
-import time
 
 LIBMAAS_IMP_ERR = None
 try:
@@ -172,8 +175,6 @@ try:
 except ImportError:
     LIBMAAS_IMP_ERR = traceback.format_exc()
     HAS_LIBMAAS = False
-
-from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 
 
 def status_map(maas_status_id):
@@ -229,38 +230,58 @@ def status_map(maas_status_id):
     return maas_status
 
 
-def blank_storage(machine):
-    result = ''
+def clear_storage(machine):
+    clear_storage_result = ''
     for vol_group in machine.volume_groups:
         vol_group.delete()
-        result = 'deleted'
+        clear_storage_result = 'cleared'
 
     for disk in machine.block_devices:
         if disk.type == BlockDeviceType.VIRTUAL:
             disk.delete()
-            result = 'deleted'
+            clear_storage_result = 'cleared'
 
     for disk in machine.block_devices:
         if disk.type == BlockDeviceType.PHYSICAL:
             for partition in disk.partitions:
                 partition.delete()
-                result = 'deleted'
-    return result
+                clear_storage_result = 'cleared'
+    return clear_storage_result
 
 
 def set_boot_disk(machine, boot_disk):
-    result = ''
+    set_boot_disk_result = ''
     for disk in machine.block_devices:
         if disk.type == BlockDeviceType.PHYSICAL:
             if disk.name in boot_disk:
                 disk.set_as_boot_disk()
-                result = 'pass'
+                set_boot_disk_result = 'pass'
             elif disk.serial in boot_disk:
                 disk.set_as_boot_disk()
-                result = 'pass'
+                set_boot_disk_result = 'pass'
             else:
-                result = 'fail'
-    return result
+                set_boot_disk_result = 'fail'
+    return set_boot_disk_result
+
+
+def set_storage_layout(system_id, url, apikey, layout):
+    set_storage_result = ''
+    consumer_key = apikey.split(':')[0]
+    token_key = apikey.split(':')[1]
+    token_secret = apikey.split(':')[2]
+    auth1 = OAuth1(consumer_key, '', token_key, token_secret)
+    headers = {'Accept': 'application/json'}
+    req_url = url + 'api/2.0/machines/' + system_id + '/?op=set_storage_layout'
+    body = dict(storage_layout=layout)
+    s = Session()
+    req = Request('POST', req_url, data=body, headers=headers, auth=auth1)
+    prepped = req.prepare()
+    resp = s.send(prepped)
+    if resp.status_code == 200:
+        set_storage_result = 'success'
+    else:
+        set_storage_result = 'fail'
+    return set_storage_result
 
 
 def delete_interfaces(machine):
@@ -290,15 +311,18 @@ def create_vlan_interface(machine, vlan, client):
         vlan_parent = machine.interfaces.get_by_name(name=parent)
         # With the next two lines, the first operation gets the physical interface on the right fabric but also configures the subnet (which we don't want)
         # The second operation resets the link, but doesn't remove the fabric assignment
-        vlan_parent.links.create(LinkMode.LINK_UP, force=True, subnet=maas_subnet)
+        vlan_parent.links.create(
+            LinkMode.LINK_UP, force=True, subnet=maas_subnet)
         vlan_parent.links.create(LinkMode.LINK_UP, force=True)
-        vlan_interface = machine.interfaces.create(InterfaceType.VLAN, parent=vlan_parent, vlan=maas_subnet.vlan)
+        vlan_interface = machine.interfaces.create(
+            InterfaceType.VLAN, parent=vlan_parent, vlan=maas_subnet.vlan)
         if 'dhcp' in link_mode:
             vlan_interface.links.create(LinkMode.DHCP, subnet=maas_subnet.id)
         if 'auto' in link_mode:
             vlan_interface.links.create(LinkMode.AUTO, subnet=maas_subnet.id)
         if 'static' in link_mode:
-            vlan_interface.links.create(LinkMode.STATIC, subnet=maas_subnet.id, ip_address=ip_address)
+            vlan_interface.links.create(
+                LinkMode.STATIC, subnet=maas_subnet.id, ip_address=ip_address)
 
 
 def run_module():
@@ -307,13 +331,15 @@ def run_module():
         system_id=dict(type='str', required=True),
         maas_url=dict(type='str'),
         maas_apikey=dict(type='str', no_log=True),
-        state=dict(type='str', required=True, choices=['commissioned', 'ready', 'deployed']),
+        state=dict(type='str', required=True, choices=[
+                   'commissioned', 'ready', 'deployed']),
         scripts=dict(type='list', elements='str'),
         force=dict(type='bool', default=False),
         distro_series=dict(type='str'),
         b64_user_data=dict(type='str'),
         boot_disk=dict(type='str'),
-        storage_layout=dict(type='str', choices=['blank', 'flat', 'lvm']),
+        storage_layout=dict(type='str', choices=[
+                            'blank', 'flat', 'lvm', 'vmfs6']),
         vlans=dict(type='list', elements='dict', options=dict(
             vlan_id=dict(type='int'),
             parent=dict(type='str'),
@@ -343,12 +369,14 @@ def run_module():
         required_if=[       # if state = deployed then we need the storage_layout and vlans
             ('state', 'deployed', ('storage_layout', 'vlans'))
         ],
-        required_by={'distro_series': 'storage_layout'},    # if distro_series is specified, we also need storage_layout
+        # if distro_series is specified, we also need storage_layout
+        required_by={'distro_series': 'storage_layout'},
         supports_check_mode=True
     )
 
     if not HAS_LIBMAAS:
-        module.fail_json(msg=missing_required_lib('python-libmaas'), exception=LIBMAAS_IMP_ERR)
+        module.fail_json(msg=missing_required_lib(
+            'python-libmaas'), exception=LIBMAAS_IMP_ERR)
 
     system_id = module.params['system_id']
     maas_url = (
@@ -371,7 +399,8 @@ def run_module():
         for vlan in vlans:      # Validation that ip_address is provided if link_mode=static.
             if 'static' in vlan['link_mode']:
                 if vlan['ip_address'] is None:
-                    module.fail_json(msg='vlans.ip_address must be provided if vlans.link_mode: static', **result)
+                    module.fail_json(
+                        msg='vlans.ip_address must be provided if vlans.link_mode: static', **result)
     changed = False
 
     try:
@@ -394,7 +423,8 @@ def run_module():
         if maas_status_id == NodeStatus.NEW:
             # This is OK - commission the machine
             if scripts:
-                maas_machine.commission(wait=False, commissioning_scripts=scripts)
+                maas_machine.commission(
+                    wait=False, commissioning_scripts=scripts)
                 changed = True
             else:
                 maas_machine.commission(wait=False)
@@ -404,20 +434,23 @@ def run_module():
             if force:
                 # Set the machine to commission and don't wait
                 if scripts:
-                    maas_machine.commission(wait=False, commissioning_scripts=scripts)
+                    maas_machine.commission(
+                        wait=False, commissioning_scripts=scripts)
                     changed = True
                 else:
                     maas_machine.commission(wait=False)
                     changed = True
             else:  # force = no
-                module.fail_json(msg='ERROR: machine is in %s state, set force: true to commission the node.' % maas_status, **result)
+                module.fail_json(
+                    msg='ERROR: machine is in %s state, set force: true to commission the node.' % maas_status, **result)
         elif maas_status_id == NodeStatus.DEPLOYED:
             if force:
                 maas_machine.release(wait=True)
                 maas_machine.commission(wait=False)
                 changed = True
             else:
-                module.fail_json(msg='ERROR: machine is in %s state, set force: true to commission the node.' % maas_status, **result)
+                module.fail_json(
+                    msg='ERROR: machine is in %s state, set force: true to commission the node.' % maas_status, **result)
         elif maas_status_id in (NodeStatus.COMMISSIONING, NodeStatus.DEPLOYING):
             if force:
                 maas_machine.abort()
@@ -425,9 +458,11 @@ def run_module():
                 maas_machine.commission(wait=False)
                 changed = True
             else:
-                module.fail_json(msg='ERROR: machine is in %s state, set force: true to commission the node.' % maas_status, **result)
+                module.fail_json(
+                    msg='ERROR: machine is in %s state, set force: true to commission the node.' % maas_status, **result)
         else:
-            module.fail_json(msg='ERROR: machine is in %s state - cannot be commissioned.' % maas_status, **result)
+            module.fail_json(
+                msg='ERROR: machine is in %s state - cannot be commissioned.' % maas_status, **result)
     if state == 'ready':
         # This action, which includes the 'Power off' action,
         # releases a node back into the pool of available nodes,
@@ -440,19 +475,35 @@ def run_module():
             elif maas_status_id == NodeStatus.READY:
                 changed = False
         except (CallError):
-            module.fail_json(msg='ERROR: machine is in %s state - cannot be released.' % maas_status, **result)
+            module.fail_json(
+                msg='ERROR: machine is in %s state - cannot be released.' % maas_status, **result)
     if state == 'deployed':
+        if maas_status_id in (NodeStatus.DEPLOYED, NodeStatus.DEPLOYING):
+            if force:
+                maas_machine.release(wait=True)
+                time.sleep(30)
+                maas_machine.refresh()
+                maas_status_id = maas_machine.status
+                changed = True
         if maas_status_id in (NodeStatus.READY, NodeStatus.ALLOCATED):
             # Ensure correct storage layout and boot disk
-            if 'blank' in storage_layout:
-                blank_storage(maas_machine)
-                if 'deleted' in result:
-                    changed = True
+            clear_storage_result = set_storage_layout(
+                system_id, maas_url, maas_apikey, 'blank')
+            if 'success' in clear_storage_result:
+                changed = True
             if boot_disk:
-                set_boot_disk(maas_machine, boot_disk)
-                if 'fail' in result:
+                set_boot_disk_result = set_boot_disk(maas_machine, boot_disk)
+                if 'fail' in set_boot_disk_result:
                     module.fail_json(
                         msg='No physical disk found with name or serial number matching %s' % boot_disk, **result)
+            if storage_layout:
+                set_storage_result = set_storage_layout(
+                    system_id, maas_url, maas_apikey, storage_layout)
+                if 'success' in set_storage_result:
+                    changed = True
+                elif 'fail' in set_storage_result:
+                    module.fail_json(
+                        msg='Unable to apply the %s layout, please check the server in MAAS.' % storage_layout, **result)
             # Configure the networking
             delete_interfaces(maas_machine)
             if vlans:
@@ -467,7 +518,8 @@ def run_module():
             # This is OK to deploy
             if user_data and distro_series:
                 try:
-                    maas_machine.deploy(user_data=user_data, distro_series=distro_series)
+                    maas_machine.deploy(user_data=user_data,
+                                        distro_series=distro_series)
                     changed = True
                 except CallError as e:
                     module.fail_json(msg=e, **result)
@@ -488,14 +540,17 @@ def run_module():
                     maas_machine.deploy()
                     changed = True
                 except (CallError):
-                    module.fail_json(msg='Deploy failed - check the machine config, e.g. storage is mounted correctly.', **result)
+                    module.fail_json(
+                        msg='Deploy failed - check the machine config, e.g. storage is mounted correctly.', **result)
         else:
-            module.fail_json(msg='ERROR: machine is in %s state - cannot be deployed.' % maas_status, **result)
+            module.fail_json(
+                msg='ERROR: machine is in %s state - cannot be deployed.' % maas_status, **result)
 
     if module.check_mode:
         module.exit_json(**result)
 
-    result = {"changed": changed, "system_id": system_id, "original_state": maas_status}
+    result = {"changed": changed, "system_id": system_id,
+              "original_state": maas_status}
 
     module.exit_json(**result)
 
