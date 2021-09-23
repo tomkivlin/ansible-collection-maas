@@ -2,13 +2,6 @@
 
 # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-from __future__ import (absolute_import, division, print_function)
-from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from requests_oauthlib import OAuth1
-from requests import Request, Session
-import time
-import traceback
-import os
 
 __metaclass__ = type
 
@@ -162,6 +155,13 @@ EXAMPLES = r'''
 RETURN = r'''
 # Default return values
 '''
+from __future__ import (absolute_import, division, print_function)
+from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+from requests_oauthlib import OAuth1
+from requests import Request, Session
+import time
+import traceback
+import os
 
 LIBMAAS_IMP_ERR = None
 try:
