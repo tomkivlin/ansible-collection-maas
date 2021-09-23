@@ -157,10 +157,17 @@ RETURN = r'''
 # Default return values
 '''
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
-from requests import Request, Session
 import time
 import traceback
 import os
+
+REQUESTS_IMP_ERR = None
+try:
+    from requests import Request, Session
+    HAS_REQUESTS = True
+except ImportError:
+    REQUESTS_IMP_ERR = traceback.format_exc()
+    HAS_REQUESTS = False
 
 OAUTH_IMP_ERR = None
 try:
@@ -388,6 +395,10 @@ def run_module():
     if not HAS_OAUTH:
         module.fail_json(msg=missing_required_lib(
             'requests_oauthlib'), exception=OAUTH_IMP_ERR)
+
+    if not HAS_REQUESTS:
+        module.fail_json(msg=missing_required_lib(
+            'requests'), exception=REQUESTS_IMP_ERR)
 
     system_id = module.params['system_id']
     maas_url = (
